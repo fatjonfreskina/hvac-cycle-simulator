@@ -46,8 +46,8 @@ using only the README.
 
 **Goal:** expose enough information to explain the cycle, not just solve it.
 
-- Return saturation temperatures, superheat, subcooling and pressure ratio
-- Add heating COP and component-specific energy balances
+- [x] Return saturation levels, superheat, subcooling and pressure ratio
+- [x] Add heating COP and component-specific energy balances
 - Generate P-h and T-s cycle coordinates
 - Add warnings for unsafe or non-physical operating points
 - Support a small, documented refrigerant set

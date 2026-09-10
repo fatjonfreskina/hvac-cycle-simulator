@@ -26,6 +26,26 @@ class CycleResult:
     compressor_power_w: float
     condenser_capacity_w: float
     cooling_cop: float
+    heating_cop: float
+    evaporating_pressure_pa: float
+    condensing_pressure_pa: float
+    pressure_ratio: float
+    superheat_k: float
+    subcooling_k: float
+    specific_cooling_j_kg: float
+    specific_compressor_work_j_kg: float
+    specific_condenser_heat_j_kg: float
+    energy_balance_error_w: float
+
+    @property
+    def states(self) -> tuple[ThermodynamicState, ...]:
+        """Return the four canonical cycle states in flow order."""
+        return (
+            self.evaporator_outlet,
+            self.compressor_outlet,
+            self.condenser_outlet,
+            self.expansion_valve_outlet,
+        )
 
 
 def simulate_cycle(inputs: CycleInputs) -> CycleResult:
@@ -75,6 +95,8 @@ def simulate_cycle(inputs: CycleInputs) -> CycleResult:
     cooling_capacity = inputs.mass_flow_kg_s * specific_cooling
     compressor_power = inputs.mass_flow_kg_s * specific_work
     condenser_capacity = inputs.mass_flow_kg_s * (h2 - h3)
+    specific_condenser_heat = h2 - h3
+    energy_balance_error = condenser_capacity - cooling_capacity - compressor_power
 
     return CycleResult(
         evaporator_outlet=state1,
@@ -85,4 +107,14 @@ def simulate_cycle(inputs: CycleInputs) -> CycleResult:
         compressor_power_w=compressor_power,
         condenser_capacity_w=condenser_capacity,
         cooling_cop=cooling_capacity / compressor_power,
+        heating_cop=condenser_capacity / compressor_power,
+        evaporating_pressure_pa=p_low,
+        condensing_pressure_pa=p_high,
+        pressure_ratio=p_high / p_low,
+        superheat_k=state1.temperature_k - evaporating_k,
+        subcooling_k=condensing_k - state3.temperature_k,
+        specific_cooling_j_kg=specific_cooling,
+        specific_compressor_work_j_kg=specific_work,
+        specific_condenser_heat_j_kg=specific_condenser_heat,
+        energy_balance_error_w=energy_balance_error,
     )

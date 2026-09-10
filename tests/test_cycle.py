@@ -16,6 +16,8 @@ def test_default_cycle_is_physically_consistent() -> None:
     assert result.evaporator_outlet.phase is Phase.SUPERHEATED_VAPOR
     assert result.condenser_outlet.phase is Phase.SUBCOOLED_LIQUID
     assert result.expansion_valve_outlet.phase is Phase.TWO_PHASE
+    assert result.heating_cop == pytest.approx(result.cooling_cop + 1)
+    assert result.energy_balance_error_w == pytest.approx(0, abs=1e-9)
 
 
 def test_expansion_valve_is_isenthalpic() -> None:
@@ -35,6 +37,20 @@ def test_component_pressures_form_two_isobars() -> None:
         result.condenser_outlet.pressure_pa
     )
     assert result.compressor_outlet.pressure_pa > result.evaporator_outlet.pressure_pa
+    assert result.pressure_ratio == pytest.approx(
+        result.condensing_pressure_pa / result.evaporating_pressure_pa
+    )
+
+
+def test_states_are_returned_in_canonical_flow_order() -> None:
+    result = simulate_cycle(CycleInputs())
+
+    assert result.states == (
+        result.evaporator_outlet,
+        result.compressor_outlet,
+        result.condenser_outlet,
+        result.expansion_valve_outlet,
+    )
 
 
 def test_compressor_increases_enthalpy_and_temperature() -> None:
@@ -95,6 +111,11 @@ def test_default_case_stays_within_a_sensible_regression_range() -> None:
     assert result.cooling_capacity_w == pytest.approx(7_850, rel=0.02)
     assert result.compressor_power_w == pytest.approx(1_520, rel=0.02)
     assert result.cooling_cop == pytest.approx(5.17, rel=0.02)
+    assert result.superheat_k == pytest.approx(5.0)
+    assert result.subcooling_k == pytest.approx(5.0)
+    assert result.specific_condenser_heat_j_kg == pytest.approx(
+        result.specific_cooling_j_kg + result.specific_compressor_work_j_kg
+    )
 
 
 @pytest.mark.parametrize(
