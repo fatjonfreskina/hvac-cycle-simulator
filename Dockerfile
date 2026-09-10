@@ -1,11 +1,10 @@
-FROM python:3
+FROM python:3.12-slim
 
 WORKDIR /app
 
-COPY requirements.txt requirements.txt
+COPY pyproject.toml README.md ./
+COPY src ./src
 
-RUN pip3 install -r requirements.txt
+RUN pip install --no-cache-dir .
 
-COPY . .
-
-CMD ["python3", "src/main.py"]
+CMD ["hvac-cycle"]
