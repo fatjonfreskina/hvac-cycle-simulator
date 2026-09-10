@@ -22,13 +22,44 @@ compressor maps and transient behavior are not yet represented.
 
 Python 3.11 or newer is required.
 
+### Windows PowerShell
+
+Check which Python versions are available and create the environment explicitly
+with Python 3.11 or newer. Using `python -m venv` may otherwise select an older
+installation such as Python 3.9.
+
+```powershell
+py --list
+py -3.11 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
+```
+
+### macOS or Linux
+
 ```bash
-python -m venv .venv
-.venv\Scripts\activate
+python3.11 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
+```
+
+The basic installation includes only the simulator and CoolProp. JupyterLab and
+Matplotlib are optional and are needed only to work with the notebooks:
+
+```bash
+python -m pip install -e ".[notebooks]"
+```
+
+To install both development and notebook tools, use:
+
+```bash
 python -m pip install -e ".[dev,notebooks]"
 ```
 
-On macOS or Linux, activate the environment with `source .venv/bin/activate`.
+Alternatively, `python -m pip install -r requirements.txt` performs the minimal
+installation, including the `hvac-cycle` command, without notebook tooling.
 
 ## Run the example
 
@@ -36,11 +67,36 @@ On macOS or Linux, activate the environment with `source .venv/bin/activate`.
 hvac-cycle
 ```
 
+The equivalent module invocation is useful if the shell has not refreshed its
+command lookup after installation:
+
+```bash
+python -m hvac_cycle.cli
+```
+
 ## Run the tests
 
 ```bash
-pytest
+python -m pytest
 ```
+
+Using `python -m pytest` ensures that tests run with the interpreter from the
+active virtual environment rather than a different global `pytest` executable.
+
+## Troubleshooting
+
+Verify that all commands resolve to the active environment:
+
+```powershell
+python --version
+python -m pip --version
+python -m pip show hvac-cycle-simulator
+Get-Command python
+Get-Command hvac-cycle
+```
+
+If `python --version` reports Python 3.9, deactivate and recreate `.venv` using
+the explicit `py -3.11 -m venv .venv` command above. Python 3.9 is not supported.
 
 ## Project direction
 

@@ -1,6 +1,2 @@
-# Kept for simple notebook and Docker workflows.
-# For development, prefer: pip install -e ".[dev,notebooks]"
-CoolProp==7.2.0
-jupyterlab>=4,<5
-matplotlib>=3.8,<4
-pytest>=8,<10
+# Minimal local installation: package, CLI and CoolProp runtime dependency.
+-e .
