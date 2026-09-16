@@ -1,25 +1,109 @@
-# python-project-template
+# HVAC Cycle Simulator
+
+An educational vapor-compression cycle simulator for future HVAC engineers.
+The project aims to become an interactive learning lab where students can
+change operating conditions, inspect thermodynamic states and explain the
+physical consequences.
+
+## Current capabilities
+
+- Steady-state four-component refrigeration cycle
+- CoolProp refrigerant properties
+- Compressor isentropic efficiency
+- Evaporator superheat and condenser subcooling
+- Cooling capacity, compressor power and COP
+- Typed state and result models
+- Physical-input validation and energy-balance tests
+
+The model is intentionally idealized. Pressure drops, heat exchanger sizing,
+compressor maps and transient behavior are not yet represented.
 
 ## Setup
 
+Python 3.11 or newer is required.
 
+### Windows PowerShell
 
-- `python -m venv <venv-name>` or `path\to\specific\python\interpreter -m venv <venv_name>`
-- \<venv-name\Scripts\activate
-- `pip install -r requirements.txt`
+Check which Python versions are available and create the environment explicitly
+with Python 3.11 or newer. Using `python -m venv` may otherwise select an older
+installation such as Python 3.9.
 
-## Install the package as a script
+```powershell
+py --list
+py -3.11 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
+```
 
-Update the setup.py for this to work properly
+### macOS or Linux
 
-`pip install .`
+```bash
+python3.11 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
+```
 
-## Run Tests
+The basic installation includes only the simulator and CoolProp. JupyterLab and
+Matplotlib are optional and are needed only to work with the notebooks:
 
-`cd tests/ && python test_run.py`
+```bash
+python -m pip install -e ".[notebooks]"
+```
 
-## Docker
+To install both development and notebook tools, use:
 
-- `docker build --tag python-template-tag .`
-- check it with `docker images`
-- `docker run python-template-tag`
+```bash
+python -m pip install -e ".[dev,notebooks]"
+```
+
+Alternatively, `python -m pip install -r requirements.txt` performs the minimal
+installation, including the `hvac-cycle` command, without notebook tooling.
+
+## Run the example
+
+```bash
+hvac-cycle
+```
+
+The equivalent module invocation is useful if the shell has not refreshed its
+command lookup after installation:
+
+```bash
+python -m hvac_cycle.cli
+```
+
+## Run the tests
+
+```bash
+python -m pytest
+```
+
+Using `python -m pytest` ensures that tests run with the interpreter from the
+active virtual environment rather than a different global `pytest` executable.
+
+## Troubleshooting
+
+Verify that all commands resolve to the active environment:
+
+```powershell
+python --version
+python -m pip --version
+python -m pip show hvac-cycle-simulator
+Get-Command python
+Get-Command hvac-cycle
+```
+
+If `python --version` reports Python 3.9, deactivate and recreate `.venv` using
+the explicit `py -3.11 -m venv .venv` command above. Python 3.9 is not supported.
+
+## Project direction
+
+See [ROADMAP.md](ROADMAP.md) for the planned evolution toward an interactive
+HVAC Learning Lab for students, educators and firmware/control engineers.
+
+## Disclaimer
+
+This software is intended for education and early engineering exploration. It
+must not be used as the sole basis for equipment selection or safety decisions.

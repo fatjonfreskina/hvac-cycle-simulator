@@ -1,5 +1,2 @@
-CoolProp==7.2.0
-numpy==2.4.3
-python-dotenv==1.0.0
-jupyterlab
-matplotlib
+# Minimal local installation: package, CLI and CoolProp runtime dependency.
+-e .
