@@ -66,7 +66,11 @@ def create_parser() -> argparse.ArgumentParser:
         description="Explore and learn idealized vapor-compression HVAC cycles.",
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {package_version()}")
-    subparsers = parser.add_subparsers(dest="command", metavar="COMMAND")
+    subparsers = parser.add_subparsers(
+        dest="command",
+        metavar="COMMAND",
+        required=True,
+    )
 
     simulate_parser = subparsers.add_parser(
         "simulate",
@@ -88,16 +92,6 @@ def create_parser() -> argparse.ArgumentParser:
         ),
     )
     return parser
-
-
-def normalize_argv(argv: Sequence[str] | None) -> list[str]:
-    """Preserve the original no-subcommand syntax as an alias for simulate."""
-    arguments = list(sys.argv[1:] if argv is None else argv)
-    if not arguments:
-        return ["simulate"]
-    if arguments[0] in {"simulate", "learn", "-h", "--help", "--version"}:
-        return arguments
-    return ["simulate", *arguments]
 
 
 def inputs_from_args(args: argparse.Namespace) -> CycleInputs:
@@ -508,7 +502,17 @@ def run(
 ) -> int:
     """Run the CLI and return a process exit code."""
     parser = create_parser()
-    args = parser.parse_args(normalize_argv(argv))
+    arguments = list(sys.argv[1:] if argv is None else argv)
+    if (
+        arguments
+        and arguments[0].startswith("-")
+        and arguments[0] not in {"-h", "--help", "--version"}
+    ):
+        parser.error(
+            "a subcommand is required before options; "
+            "use 'hvac-cycle simulate' or 'hvac-cycle learn'"
+        )
+    args = parser.parse_args(arguments)
     if args.command == "learn":
         try:
             return run_learning_session(input_fn=input_fn, output_fn=output_fn)

@@ -116,6 +116,7 @@ def test_summary_output_uses_custom_operating_point(
 ) -> None:
     exit_code = run(
         [
+            "simulate",
             "--evap-temp", "0",
             "--cond-temp", "45",
             "--mass-flow", "0.04",
@@ -131,7 +132,7 @@ def test_summary_output_uses_custom_operating_point(
 
 
 def test_json_output_is_machine_readable(capsys: pytest.CaptureFixture[str]) -> None:
-    assert run(["--output", "json"]) == 0
+    assert run(["simulate", "--output", "json"]) == 0
 
     payload = json.loads(capsys.readouterr().out)
     assert payload["inputs"]["fluid"] == "R134a"
@@ -144,17 +145,34 @@ def test_invalid_cli_inputs_return_usage_error(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     with pytest.raises(SystemExit) as exit_info:
-        run(["--evap-temp", "50", "--cond-temp", "40"])
+        run(["simulate", "--evap-temp", "50", "--cond-temp", "40"])
 
     assert exit_info.value.code == 2
     assert "Evaporating temperature must be below" in capsys.readouterr().err
 
 
-def test_original_syntax_remains_an_alias_for_simulate(
+def test_subcommand_is_required(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    assert run(["--evap-temp", "0", "--output", "summary"]) == 0
-    assert "Cooling COP:" in capsys.readouterr().out
+    with pytest.raises(SystemExit) as exit_info:
+        run([])
+
+    assert exit_info.value.code == 2
+    error = capsys.readouterr().err
+    assert "the following arguments are required: COMMAND" in error
+
+
+def test_simulation_options_are_rejected_without_subcommand(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit) as exit_info:
+        run(["--evap-temp", "0"])
+
+    assert exit_info.value.code == 2
+    error = capsys.readouterr().err
+    assert "a subcommand is required before options" in error
+    assert "hvac-cycle simulate" in error
+    assert "hvac-cycle learn" in error
 
 
 def test_prompt_value_retries_invalid_answers() -> None:

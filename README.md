@@ -77,9 +77,8 @@ four cycle states:
 hvac-cycle learn
 ```
 
-For backward compatibility, arguments passed without a subcommand are treated
-as `simulate` arguments. For example, `hvac-cycle --output summary` continues
-to work.
+The subcommand is always required. Use `simulate` for direct calculations and
+`learn` for the guided lesson; options are never routed implicitly.
 
 The equivalent module invocation is useful if the shell has not refreshed its
 command lookup after installation:
