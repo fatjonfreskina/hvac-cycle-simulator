@@ -7,6 +7,7 @@ from importlib.metadata import PackageNotFoundError, version
 from typing import Any, Callable
 
 from .cycle import CycleInputs, CycleResult, simulate_cycle
+from .refrigerants import SUPPORTED_REFRIGERANTS, normalize_refrigerant
 from .state import Phase, ThermodynamicState
 
 
@@ -28,7 +29,14 @@ def package_version() -> str:
 
 def add_simulation_arguments(parser: argparse.ArgumentParser) -> None:
     """Add the inputs shared by direct simulations."""
-    parser.add_argument("--fluid", default="R134a", help="CoolProp refrigerant name")
+    parser.add_argument(
+        "--fluid",
+        default="R134a",
+        help=(
+            "supported refrigerant name or alias: "
+            + ", ".join(refrigerant.name for refrigerant in SUPPORTED_REFRIGERANTS)
+        ),
+    )
     parser.add_argument(
         "--evap-temp", type=float, default=5.0, metavar="DEG_C",
         help="evaporating saturation temperature",
@@ -97,7 +105,7 @@ def create_parser() -> argparse.ArgumentParser:
 def inputs_from_args(args: argparse.Namespace) -> CycleInputs:
     """Translate parsed CLI arguments into domain inputs."""
     return CycleInputs(
-        fluid=args.fluid,
+        fluid=normalize_refrigerant(args.fluid),
         evaporating_temperature_c=args.evap_temp,
         condensing_temperature_c=args.cond_temp,
         superheat_k=args.superheat,
@@ -273,6 +281,32 @@ def prompt_value(
         return value
 
 
+def prompt_refrigerant(
+    default: str,
+    input_fn: InputFunction,
+    output_fn: OutputFunction,
+) -> str:
+    """Let the learner select a documented refrigerant by number, name or alias."""
+    output_fn("Supported refrigerants:")
+    for number, refrigerant in enumerate(SUPPORTED_REFRIGERANTS, start=1):
+        output_fn(f"  {number}. {refrigerant.name} - {refrigerant.description}")
+
+    while True:
+        answer = input_fn(f"Refrigerant [{default}]: ").strip()
+        if not answer:
+            return normalize_refrigerant(default)
+        if answer.isdigit():
+            selection = int(answer)
+            if 1 <= selection <= len(SUPPORTED_REFRIGERANTS):
+                return SUPPORTED_REFRIGERANTS[selection - 1].name
+            output_fn(f"Choose a number from 1 to {len(SUPPORTED_REFRIGERANTS)}.")
+            continue
+        try:
+            return normalize_refrigerant(answer)
+        except ValueError as exc:
+            output_fn(str(exc))
+
+
 def collect_learning_inputs(
     defaults: CycleInputs,
     input_fn: InputFunction,
@@ -283,7 +317,7 @@ def collect_learning_inputs(
     output_fn(
         "The refrigerant determines the saturation pressures and thermodynamic properties."
     )
-    fluid = input_fn(f"Refrigerant [{defaults.fluid}]: ").strip() or defaults.fluid
+    fluid = prompt_refrigerant(defaults.fluid, input_fn, output_fn)
 
     output_fn(
         "\nEvaporating temperature is the low-side saturation temperature, not the "

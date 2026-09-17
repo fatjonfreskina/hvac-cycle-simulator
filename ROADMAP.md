@@ -50,7 +50,7 @@ using only the README.
 - [x] Add heating COP and component-specific energy balances
 - [ ] Generate P-h and T-s cycle coordinates
 - [ ] Add warnings for unsafe or non-physical operating points
-- [ ] Support a small, documented refrigerant set
+- [x] Support a small, documented refrigerant set with friendly aliases
 - [ ] Add parameter sweeps for comparative experiments
 - [x] Document model assumptions in the full educational report
 - [ ] Attach assumptions and warnings to machine-readable results

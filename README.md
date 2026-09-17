@@ -70,6 +70,12 @@ hvac-cycle simulate --fluid R134a --evap-temp 0 --cond-temp 45 \
 Use `--output summary` for a compact result or `--output json` for a
 machine-readable result suitable for scripts and future user interfaces.
 
+Supported refrigerants are `R134a`, `R1234ze(E)`, `R1234yf`, `R32` and `R290`.
+Common aliases are accepted case-insensitively; for example, `R1234ze` is
+normalized to the CoolProp name `R1234ze(E)`. These choices are supported by
+the current subcritical educational model and do not imply safety or equipment
+compatibility approval.
+
 Start an interactive lesson that explains every input and walks through the
 four cycle states:
 

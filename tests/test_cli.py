@@ -10,6 +10,7 @@ from hvac_cycle.cli import (
     format_performance_summary,
     format_state_table,
     inputs_from_args,
+    prompt_refrigerant,
     prompt_value,
     run,
 )
@@ -223,3 +224,40 @@ def test_learning_session_handles_end_of_input_cleanly() -> None:
 
     assert exit_code == 0
     assert any("Lesson ended" in message for message in messages)
+
+
+def test_simulate_accepts_r1234ze_alias(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert run(["simulate", "--fluid", "R1234ze", "--output", "json"]) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["inputs"]["fluid"] == "R1234ze(E)"
+    assert payload["performance"]["cooling_cop"] > 1
+
+
+def test_refrigerant_prompt_accepts_numbered_selection() -> None:
+    messages: list[str] = []
+
+    selected = prompt_refrigerant("R134a", lambda _: "2", messages.append)
+
+    assert selected == "R1234ze(E)"
+    assert any("R1234ze(E)" in message for message in messages)
+
+
+def test_learning_session_accepts_r1234ze_alias() -> None:
+    answers = iter(
+        ["R1234ze", "", "", "", "", "", "", "", "", "", "", "", "4"]
+    )
+    messages: list[str] = []
+
+    exit_code = run(
+        ["learn"],
+        input_fn=lambda _: next(answers),
+        output_fn=messages.append,
+    )
+
+    output = "\n".join(messages)
+    assert exit_code == 0
+    assert "Refrigerant:                 R1234ze(E)" in output
+    assert "Lesson complete" in output
