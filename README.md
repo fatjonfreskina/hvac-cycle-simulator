@@ -48,27 +48,38 @@ python -m pip install -e ".[dev]"
 Alternatively, `python -m pip install -r requirements.txt` performs the minimal
 installation, including the `hvac-cycle` command.
 
-## Run the example
-
-```bash
-hvac-cycle
-```
-
-Display all available inputs and their defaults:
+## Command-line interface
 
 ```bash
 hvac-cycle --help
 ```
 
+Run a simulation with the default operating point:
+
+```bash
+hvac-cycle simulate
+```
+
 Simulate a custom operating point:
 
 ```bash
-hvac-cycle --fluid R134a --evap-temp 0 --cond-temp 45 \
+hvac-cycle simulate --fluid R134a --evap-temp 0 --cond-temp 45 \
   --superheat 7 --subcooling 3 --efficiency 0.70 --mass-flow 0.04
 ```
 
 Use `--output summary` for a compact result or `--output json` for a
 machine-readable result suitable for scripts and future user interfaces.
+
+Start an interactive lesson that explains every input and walks through the
+four cycle states:
+
+```bash
+hvac-cycle learn
+```
+
+For backward compatibility, arguments passed without a subcommand are treated
+as `simulate` arguments. For example, `hvac-cycle --output summary` continues
+to work.
 
 The equivalent module invocation is useful if the shell has not refreshed its
 command lookup after installation:

@@ -1,9 +1,10 @@
 import argparse
 import json
+import sys
 from collections.abc import Sequence
 from dataclasses import asdict
 from importlib.metadata import PackageNotFoundError, version
-from typing import Any
+from typing import Any, Callable
 
 from .cycle import CycleInputs, CycleResult, simulate_cycle
 from .state import Phase, ThermodynamicState
@@ -25,17 +26,8 @@ def package_version() -> str:
         return "0.1.0"
 
 
-def create_parser() -> argparse.ArgumentParser:
-    """Build the command-line parser."""
-    parser = argparse.ArgumentParser(
-        prog="hvac-cycle",
-        description=(
-            "Simulate an idealized steady-state vapor-compression HVAC cycle. "
-            "Evaporating and condensing temperatures are saturation temperatures."
-        ),
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-    parser.add_argument("--version", action="version", version=f"%(prog)s {package_version()}")
+def add_simulation_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add the inputs shared by direct simulations."""
     parser.add_argument("--fluid", default="R134a", help="CoolProp refrigerant name")
     parser.add_argument(
         "--evap-temp", type=float, default=5.0, metavar="DEG_C",
@@ -65,7 +57,47 @@ def create_parser() -> argparse.ArgumentParser:
         "--output", choices=("full", "summary", "json"), default="full",
         help="output detail and format",
     )
+
+
+def create_parser() -> argparse.ArgumentParser:
+    """Build the command-line parser and its learning-oriented subcommands."""
+    parser = argparse.ArgumentParser(
+        prog="hvac-cycle",
+        description="Explore and learn idealized vapor-compression HVAC cycles.",
+    )
+    parser.add_argument("--version", action="version", version=f"%(prog)s {package_version()}")
+    subparsers = parser.add_subparsers(dest="command", metavar="COMMAND")
+
+    simulate_parser = subparsers.add_parser(
+        "simulate",
+        help="run a cycle from command-line inputs",
+        description=(
+            "Simulate an idealized steady-state vapor-compression HVAC cycle. "
+            "Evaporating and condensing temperatures are saturation temperatures."
+        ),
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    add_simulation_arguments(simulate_parser)
+
+    subparsers.add_parser(
+        "learn",
+        help="build and explore a cycle through an interactive lesson",
+        description=(
+            "Start an interactive lesson that explains each input, validates the "
+            "operating point and walks through the four cycle states."
+        ),
+    )
     return parser
+
+
+def normalize_argv(argv: Sequence[str] | None) -> list[str]:
+    """Preserve the original no-subcommand syntax as an alias for simulate."""
+    arguments = list(sys.argv[1:] if argv is None else argv)
+    if not arguments:
+        return ["simulate"]
+    if arguments[0] in {"simulate", "learn", "-h", "--help", "--version"}:
+        return arguments
+    return ["simulate", *arguments]
 
 
 def inputs_from_args(args: argparse.Namespace) -> CycleInputs:
@@ -218,10 +250,275 @@ def print_full_report(inputs: CycleInputs, result: CycleResult) -> None:
     print("- The expansion valve is adiabatic and isenthalpic.")
 
 
-def run(argv: Sequence[str] | None = None) -> int:
+InputFunction = Callable[[str], str]
+OutputFunction = Callable[[str], None]
+
+
+def prompt_value(
+    prompt: str,
+    default: float,
+    input_fn: InputFunction,
+    output_fn: OutputFunction,
+    validator: Callable[[float], bool] | None = None,
+    validation_message: str = "Value is outside the allowed range.",
+) -> float:
+    """Prompt until the learner enters a valid numeric value."""
+    while True:
+        raw_value = input_fn(f"{prompt} [{default:g}]: ").strip()
+        if not raw_value:
+            value = default
+        else:
+            try:
+                value = float(raw_value)
+            except ValueError:
+                output_fn("Please enter a number, or press Enter to keep the default.")
+                continue
+        if validator is not None and not validator(value):
+            output_fn(validation_message)
+            continue
+        return value
+
+
+def collect_learning_inputs(
+    defaults: CycleInputs,
+    input_fn: InputFunction,
+    output_fn: OutputFunction,
+) -> CycleInputs:
+    """Collect a cycle operating point while explaining every input."""
+    output_fn("\nBUILD YOUR CYCLE")
+    output_fn(
+        "The refrigerant determines the saturation pressures and thermodynamic properties."
+    )
+    fluid = input_fn(f"Refrigerant [{defaults.fluid}]: ").strip() or defaults.fluid
+
+    output_fn(
+        "\nEvaporating temperature is the low-side saturation temperature, not the "
+        "final evaporator-outlet temperature."
+    )
+    evaporating_temperature = prompt_value(
+        "Evaporating saturation temperature [degC]",
+        defaults.evaporating_temperature_c,
+        input_fn,
+        output_fn,
+    )
+
+    output_fn(
+        "\nCondensing temperature is the high-side saturation temperature and must "
+        "be above the evaporating temperature."
+    )
+    condensing_temperature = prompt_value(
+        "Condensing saturation temperature [degC]",
+        defaults.condensing_temperature_c,
+        input_fn,
+        output_fn,
+        validator=lambda value: value > evaporating_temperature,
+        validation_message=(
+            "Condensing temperature must be greater than the evaporating temperature."
+        ),
+    )
+
+    output_fn("\nSuperheat keeps liquid refrigerant away from the compressor inlet.")
+    superheat = prompt_value(
+        "Superheat [K]",
+        defaults.superheat_k,
+        input_fn,
+        output_fn,
+        validator=lambda value: value >= 0,
+        validation_message="Superheat cannot be negative.",
+    )
+
+    output_fn("\nSubcooling ensures liquid refrigerant reaches the expansion valve.")
+    subcooling = prompt_value(
+        "Subcooling [K]",
+        defaults.subcooling_k,
+        input_fn,
+        output_fn,
+        validator=lambda value: value >= 0,
+        validation_message="Subcooling cannot be negative.",
+    )
+
+    output_fn(
+        "\nIsentropic efficiency compares the real compressor with an ideal, "
+        "constant-entropy compression."
+    )
+    efficiency = prompt_value(
+        "Compressor isentropic efficiency [0-1]",
+        defaults.compressor_isentropic_efficiency,
+        input_fn,
+        output_fn,
+        validator=lambda value: 0 < value <= 1,
+        validation_message="Efficiency must be greater than 0 and no greater than 1.",
+    )
+
+    output_fn("\nMass flow scales capacities and compressor power.")
+    mass_flow = prompt_value(
+        "Refrigerant mass flow [kg/s]",
+        defaults.mass_flow_kg_s,
+        input_fn,
+        output_fn,
+        validator=lambda value: value > 0,
+        validation_message="Mass flow must be greater than zero.",
+    )
+
+    return CycleInputs(
+        fluid=fluid,
+        evaporating_temperature_c=evaporating_temperature,
+        condensing_temperature_c=condensing_temperature,
+        superheat_k=superheat,
+        subcooling_k=subcooling,
+        compressor_isentropic_efficiency=efficiency,
+        mass_flow_kg_s=mass_flow,
+    )
+
+
+def format_input_summary(inputs: CycleInputs) -> str:
+    """Format the learner's selected operating point for confirmation."""
+    return "\n".join(
+        (
+            f"Refrigerant:                 {inputs.fluid}",
+            f"Evaporating temperature:     {inputs.evaporating_temperature_c:.1f} degC",
+            f"Condensing temperature:      {inputs.condensing_temperature_c:.1f} degC",
+            f"Superheat:                    {inputs.superheat_k:.1f} K",
+            f"Subcooling:                   {inputs.subcooling_k:.1f} K",
+            f"Compressor efficiency:        {inputs.compressor_isentropic_efficiency:.0%}",
+            f"Mass flow:                    {inputs.mass_flow_kg_s:.3f} kg/s",
+        )
+    )
+
+
+def confirm(
+    prompt: str,
+    input_fn: InputFunction,
+    output_fn: OutputFunction,
+) -> bool:
+    """Prompt until the learner provides a recognizable yes/no answer."""
+    while True:
+        answer = input_fn(f"{prompt} [Y/n]: ").strip().lower()
+        if answer in {"", "y", "yes"}:
+            return True
+        if answer in {"n", "no"}:
+            return False
+        output_fn("Please answer y or n.")
+
+
+def pause(input_fn: InputFunction) -> None:
+    """Pause an interactive walkthrough until the learner is ready."""
+    input_fn("Press Enter to continue...")
+
+
+def walk_through_cycle(
+    result: CycleResult,
+    input_fn: InputFunction,
+    output_fn: OutputFunction,
+) -> None:
+    """Explain the four canonical states in physical flow order."""
+    state1, state2, state3, state4 = result.states
+    explanations = build_explanations(result)
+    state_details = (
+        (
+            "STEP 1 - EVAPORATOR OUTLET",
+            explanations[3],
+            state1,
+        ),
+        (
+            "STEP 2 - COMPRESSOR OUTLET",
+            explanations[0],
+            state2,
+        ),
+        (
+            "STEP 3 - CONDENSER OUTLET",
+            explanations[1],
+            state3,
+        ),
+        (
+            "STEP 4 - EXPANSION VALVE OUTLET",
+            explanations[2],
+            state4,
+        ),
+    )
+    for title, explanation, state in state_details:
+        output_fn(f"\n{title}")
+        output_fn(explanation)
+        output_fn(
+            f"P = {state.pressure_pa / 100_000:.2f} bar(a), "
+            f"T = {state.temperature_k - 273.15:.2f} degC, "
+            f"h = {state.enthalpy_j_kg / 1000:.2f} kJ/kg, "
+            f"phase = {describe_phase(state)}"
+        )
+        pause(input_fn)
+
+    output_fn("\nENERGY BALANCE")
+    output_fn(format_performance_summary(result))
+
+
+def run_learning_session(
+    input_fn: InputFunction = input,
+    output_fn: OutputFunction = print,
+) -> int:
+    """Run an interactive, repeatable lesson around the cycle solver."""
+    output_fn("HVAC CYCLE LEARNING LAB")
+    output_fn(
+        "Build a vapor-compression cycle, then inspect what happens in each component."
+    )
+    current_inputs = CycleInputs()
+
+    while True:
+        current_inputs = collect_learning_inputs(current_inputs, input_fn, output_fn)
+        output_fn("\nYOUR OPERATING POINT")
+        output_fn(format_input_summary(current_inputs))
+        if not confirm("Run this simulation?", input_fn, output_fn):
+            output_fn("Lesson cancelled.")
+            return 0
+
+        try:
+            result = simulate_cycle(current_inputs)
+        except ValueError as exc:
+            output_fn(f"Simulation failed: {exc}")
+            output_fn("Review the inputs and try again.")
+            continue
+
+        walk_through_cycle(result, input_fn, output_fn)
+
+        while True:
+            output_fn("\nWHAT WOULD YOU LIKE TO DO?")
+            output_fn("1. Change inputs and simulate again")
+            output_fn("2. Show the complete state table")
+            output_fn("3. Export the result as JSON")
+            output_fn("4. Exit")
+            choice = input_fn("Choose [1-4]: ").strip()
+            if choice == "1":
+                break
+            if choice == "2":
+                output_fn("\n" + format_state_table(result))
+                continue
+            if choice == "3":
+                output_fn(json.dumps(result_as_dict(current_inputs, result), indent=2))
+                continue
+            if choice == "4":
+                output_fn("Lesson complete. Try changing one variable next time.")
+                return 0
+            output_fn("Please choose 1, 2, 3 or 4.")
+
+
+def run(
+    argv: Sequence[str] | None = None,
+    *,
+    input_fn: InputFunction = input,
+    output_fn: OutputFunction = print,
+) -> int:
     """Run the CLI and return a process exit code."""
     parser = create_parser()
-    args = parser.parse_args(argv)
+    args = parser.parse_args(normalize_argv(argv))
+    if args.command == "learn":
+        try:
+            return run_learning_session(input_fn=input_fn, output_fn=output_fn)
+        except EOFError:
+            output_fn("\nNo more input. Lesson ended.")
+            return 0
+        except KeyboardInterrupt:
+            output_fn("\nLesson interrupted.")
+            return 130
+
     try:
         inputs = inputs_from_args(args)
         result = simulate_cycle(inputs)
