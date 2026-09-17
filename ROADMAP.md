@@ -37,7 +37,7 @@ Every guided experiment should follow the same pattern:
 - [ ] Add continuous integration for supported Python versions
 - [ ] Define engineering conventions and a glossary
 - [ ] Add reference cases validated against independent calculations
-- [ ] Clean and align the exploratory notebooks with the package API
+- [ ] Retire or convert the exploratory notebooks into maintained learning material
 
 **Exit criteria:** a new contributor can clone, install, run and test the model
 using only the README.
@@ -48,11 +48,14 @@ using only the README.
 
 - [x] Return saturation levels, superheat, subcooling and pressure ratio
 - [x] Add heating COP and component-specific energy balances
-- Generate P-h and T-s cycle coordinates
-- Add warnings for unsafe or non-physical operating points
-- Support a small, documented refrigerant set
-- Add parameter sweeps for comparative experiments
-- Document model assumptions and limitations beside every result
+- [ ] Generate P-h and T-s cycle coordinates
+- [ ] Add warnings for unsafe or non-physical operating points
+- [x] Support a small, documented refrigerant set with friendly aliases
+- [ ] Add optional REFPROP integration for validated R515B properties
+- [ ] Add a transcritical CO2 cycle with gas-cooler controls
+- [ ] Add parameter sweeps for comparative experiments
+- [x] Document model assumptions in the full educational report
+- [ ] Attach assumptions and warnings to machine-readable results
 
 **Exit criteria:** the engine supports three independently validated teaching
 examples and produces all data needed by the web interface.
@@ -95,6 +98,41 @@ from incomplete measurements.
 
 **Exit criteria:** documented feedback and learning evidence from a real pilot,
 followed by a prioritized iteration plan.
+
+## Community program - Advent of Cooling
+
+**Goal:** create a recurring December learning event inspired by daily coding
+challenges, focused on HVAC reasoning, thermodynamics, controls and diagnosis.
+
+Start with a smaller pilot before committing to a full calendar:
+
+- Run a 7-day or 12-day alpha with students and early-career engineers
+- Expand to daily challenges from December 1 through December 24 after validation
+- Release challenges at a timezone-neutral fixed hour
+- Provide deterministic inputs and answers with documented numeric tolerances
+- Offer progressive hints and a worked solution after each challenge closes
+- Support individual, university-class and company-team participation
+- Add public and private leaderboards, completion badges and shareable profiles
+- Score primarily for correct completion; treat speed and hint usage as secondary signals
+- Include accessibility, academic-integrity and anti-cheating guidelines
+- Publish an annual retrospective covering learning outcomes and common misconceptions
+
+Candidate challenge tracks:
+
+1. Read and reconstruct thermodynamic states
+2. Predict how one changed input affects COP and component conditions
+3. Diagnose faults from pressure, temperature and power measurements
+4. Implement small control or firmware exercises
+5. Complete a final multi-stage system investigation
+
+The event can become a channel for university partnerships, community growth,
+sponsored educational content and discovery of the broader Learning Lab. The
+challenge engine should reuse the same validated solver and explanations as the
+main product rather than becoming a separate simulation stack.
+
+**Exit criteria:** the alpha demonstrates sustained participation, understandable
+challenge difficulty and measurable learning value before building the full
+24-day event and permanent leaderboard infrastructure.
 
 ## Milestone 4 - Instructor tools
 

@@ -45,33 +45,59 @@ python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
 ```
 
-The basic installation includes only the simulator and CoolProp. JupyterLab and
-Matplotlib are optional and are needed only to work with the notebooks:
-
-```bash
-python -m pip install -e ".[notebooks]"
-```
-
-To install both development and notebook tools, use:
-
-```bash
-python -m pip install -e ".[dev,notebooks]"
-```
-
 Alternatively, `python -m pip install -r requirements.txt` performs the minimal
-installation, including the `hvac-cycle` command, without notebook tooling.
+installation, including the `hvac-cycle` command.
 
-## Run the example
+## Command-line interface
 
 ```bash
-hvac-cycle
+hvac-cycle --help
 ```
+
+Run a simulation with the default operating point:
+
+```bash
+hvac-cycle simulate
+```
+
+Simulate a custom operating point:
+
+```bash
+hvac-cycle simulate --fluid R134a --evap-temp 0 --cond-temp 45 \
+  --superheat 7 --subcooling 3 --efficiency 0.70 --mass-flow 0.04
+```
+
+Use `--output summary` for a compact result or `--output json` for a
+machine-readable result suitable for scripts and future user interfaces.
+
+Supported refrigerants are `R134a`, `R1234ze(E)`, `R1234yf`, `R32`, `R290` and
+`R744` (CO2).
+Common aliases are accepted case-insensitively; for example, `R1234ze` is
+normalized to the CoolProp name `R1234ze(E)`. These choices are supported by
+the current subcritical educational model and do not imply safety or equipment
+compatibility approval.
+
+R744 automatically uses a subcritical default operating point of -10 degC
+evaporation and 25 degC condensation. Transcritical CO2 cycles are not yet
+modeled. R515B is recognized but cannot be calculated with the bundled CoolProp
+HEOS backend because the required R1234ze(E)/R227ea binary interaction data is
+not available; validated R515B support requires an optional REFPROP backend.
+
+Start an interactive lesson that explains every input and walks through the
+four cycle states:
+
+```bash
+hvac-cycle learn
+```
+
+The subcommand is always required. Use `simulate` for direct calculations and
+`learn` for the guided lesson; options are never routed implicitly.
 
 The equivalent module invocation is useful if the shell has not refreshed its
 command lookup after installation:
 
 ```bash
-python -m hvac_cycle.cli
+python -m hvac_cycle
 ```
 
 ## Run the tests
