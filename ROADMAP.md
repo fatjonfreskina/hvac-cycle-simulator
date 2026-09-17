@@ -37,7 +37,7 @@ Every guided experiment should follow the same pattern:
 - [ ] Add continuous integration for supported Python versions
 - [ ] Define engineering conventions and a glossary
 - [ ] Add reference cases validated against independent calculations
-- [ ] Clean and align the exploratory notebooks with the package API
+- [ ] Retire or convert the exploratory notebooks into maintained learning material
 
 **Exit criteria:** a new contributor can clone, install, run and test the model
 using only the README.
@@ -48,11 +48,12 @@ using only the README.
 
 - [x] Return saturation levels, superheat, subcooling and pressure ratio
 - [x] Add heating COP and component-specific energy balances
-- Generate P-h and T-s cycle coordinates
-- Add warnings for unsafe or non-physical operating points
-- Support a small, documented refrigerant set
-- Add parameter sweeps for comparative experiments
-- Document model assumptions and limitations beside every result
+- [ ] Generate P-h and T-s cycle coordinates
+- [ ] Add warnings for unsafe or non-physical operating points
+- [ ] Support a small, documented refrigerant set
+- [ ] Add parameter sweeps for comparative experiments
+- [x] Document model assumptions in the full educational report
+- [ ] Attach assumptions and warnings to machine-readable results
 
 **Exit criteria:** the engine supports three independently validated teaching
 examples and produces all data needed by the web interface.

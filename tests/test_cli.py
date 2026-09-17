@@ -1,9 +1,16 @@
+import json
+
+import pytest
+
 from hvac_cycle import CycleInputs, simulate_cycle
 from hvac_cycle.cli import (
     build_explanations,
+    create_parser,
     describe_phase,
     format_performance_summary,
     format_state_table,
+    inputs_from_args,
+    run,
 )
 
 
@@ -53,3 +60,79 @@ def test_phase_description_includes_two_phase_quality() -> None:
     description = describe_phase(state)
 
     assert description.startswith("two-phase (Q=")
+
+
+def test_parser_maps_custom_values_to_cycle_inputs() -> None:
+    parser = create_parser()
+    args = parser.parse_args(
+        [
+            "--fluid", "R1234ze(E)",
+            "--evap-temp", "0",
+            "--cond-temp", "45",
+            "--superheat", "7",
+            "--subcooling", "3",
+            "--efficiency", "0.7",
+            "--mass-flow", "0.04",
+        ]
+    )
+
+    assert inputs_from_args(args) == CycleInputs(
+        fluid="R1234ze(E)",
+        evaporating_temperature_c=0,
+        condensing_temperature_c=45,
+        superheat_k=7,
+        subcooling_k=3,
+        compressor_isentropic_efficiency=0.7,
+        mass_flow_kg_s=0.04,
+    )
+
+
+def test_help_lists_physical_inputs(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as exit_info:
+        run(["--help"])
+
+    assert exit_info.value.code == 0
+    output = capsys.readouterr().out
+    assert "--evap-temp" in output
+    assert "--cond-temp" in output
+    assert "--efficiency" in output
+    assert "saturation temperatures" in output
+
+
+def test_summary_output_uses_custom_operating_point(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    exit_code = run(
+        [
+            "--evap-temp", "0",
+            "--cond-temp", "45",
+            "--mass-flow", "0.04",
+            "--output", "summary",
+        ]
+    )
+
+    assert exit_code == 0
+    output = capsys.readouterr().out
+    assert "Evaporating pressure:" in output
+    assert "Cooling COP:" in output
+    assert "WHAT HAPPENS" not in output
+
+
+def test_json_output_is_machine_readable(capsys: pytest.CaptureFixture[str]) -> None:
+    assert run(["--output", "json"]) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["inputs"]["fluid"] == "R134a"
+    assert len(payload["states"]) == 4
+    assert payload["states"][0]["location"] == "Evaporator outlet"
+    assert payload["performance"]["cooling_cop"] > 1
+
+
+def test_invalid_cli_inputs_return_usage_error(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit) as exit_info:
+        run(["--evap-temp", "50", "--cond-temp", "40"])
+
+    assert exit_info.value.code == 2
+    assert "Evaporating temperature must be below" in capsys.readouterr().err

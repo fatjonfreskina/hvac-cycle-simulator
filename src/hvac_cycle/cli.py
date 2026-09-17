@@ -1,4 +1,9 @@
+import argparse
+import json
 from collections.abc import Sequence
+from dataclasses import asdict
+from importlib.metadata import PackageNotFoundError, version
+from typing import Any
 
 from .cycle import CycleInputs, CycleResult, simulate_cycle
 from .state import Phase, ThermodynamicState
@@ -10,6 +15,70 @@ STATE_LOCATIONS = (
     "Condenser outlet",
     "Expansion valve outlet",
 )
+
+
+def package_version() -> str:
+    """Return the installed package version, with a source-tree fallback."""
+    try:
+        return version("hvac-cycle-simulator")
+    except PackageNotFoundError:
+        return "0.1.0"
+
+
+def create_parser() -> argparse.ArgumentParser:
+    """Build the command-line parser."""
+    parser = argparse.ArgumentParser(
+        prog="hvac-cycle",
+        description=(
+            "Simulate an idealized steady-state vapor-compression HVAC cycle. "
+            "Evaporating and condensing temperatures are saturation temperatures."
+        ),
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser.add_argument("--version", action="version", version=f"%(prog)s {package_version()}")
+    parser.add_argument("--fluid", default="R134a", help="CoolProp refrigerant name")
+    parser.add_argument(
+        "--evap-temp", type=float, default=5.0, metavar="DEG_C",
+        help="evaporating saturation temperature",
+    )
+    parser.add_argument(
+        "--cond-temp", type=float, default=40.0, metavar="DEG_C",
+        help="condensing saturation temperature",
+    )
+    parser.add_argument(
+        "--superheat", type=float, default=5.0, metavar="K",
+        help="compressor-inlet superheat",
+    )
+    parser.add_argument(
+        "--subcooling", type=float, default=5.0, metavar="K",
+        help="condenser-outlet subcooling",
+    )
+    parser.add_argument(
+        "--efficiency", type=float, default=0.75, metavar="FRACTION",
+        help="compressor isentropic efficiency in the range (0, 1]",
+    )
+    parser.add_argument(
+        "--mass-flow", type=float, default=0.05, metavar="KG_S",
+        help="refrigerant mass flow",
+    )
+    parser.add_argument(
+        "--output", choices=("full", "summary", "json"), default="full",
+        help="output detail and format",
+    )
+    return parser
+
+
+def inputs_from_args(args: argparse.Namespace) -> CycleInputs:
+    """Translate parsed CLI arguments into domain inputs."""
+    return CycleInputs(
+        fluid=args.fluid,
+        evaporating_temperature_c=args.evap_temp,
+        condensing_temperature_c=args.cond_temp,
+        superheat_k=args.superheat,
+        subcooling_k=args.subcooling,
+        compressor_isentropic_efficiency=args.efficiency,
+        mass_flow_kg_s=args.mass_flow,
+    )
 
 
 def describe_phase(state: ThermodynamicState) -> str:
@@ -90,10 +159,42 @@ def build_explanations(result: CycleResult) -> Sequence[str]:
     )
 
 
-def main() -> None:
-    inputs = CycleInputs()
-    result = simulate_cycle(inputs)
+def result_as_dict(inputs: CycleInputs, result: CycleResult) -> dict[str, Any]:
+    """Build a stable, JSON-serializable representation of a simulation."""
+    states = []
+    for number, (location, state) in enumerate(
+        zip(STATE_LOCATIONS, result.states, strict=True), start=1
+    ):
+        states.append(
+            {
+                "number": number,
+                "location": location,
+                "pressure_pa": state.pressure_pa,
+                "temperature_k": state.temperature_k,
+                "enthalpy_j_kg": state.enthalpy_j_kg,
+                "entropy_j_kg_k": state.entropy_j_kg_k,
+                "phase": state.phase.value,
+                "quality": state.quality,
+            }
+        )
 
+    return {
+        "inputs": asdict(inputs),
+        "states": states,
+        "performance": {
+            "cooling_capacity_w": result.cooling_capacity_w,
+            "compressor_power_w": result.compressor_power_w,
+            "condenser_capacity_w": result.condenser_capacity_w,
+            "cooling_cop": result.cooling_cop,
+            "heating_cop": result.heating_cop,
+            "pressure_ratio": result.pressure_ratio,
+            "energy_balance_error_w": result.energy_balance_error_w,
+        },
+    }
+
+
+def print_full_report(inputs: CycleInputs, result: CycleResult) -> None:
+    """Print the complete educational report."""
     print(f"Educational HVAC cycle - {inputs.fluid}")
     print(
         f"Saturation temperatures: {inputs.evaporating_temperature_c:.1f} degC evaporation, "
@@ -115,6 +216,29 @@ def main() -> None:
     print("- No pressure drops or heat losses in pipes and heat exchangers.")
     print("- Constant compressor isentropic efficiency; no motor losses.")
     print("- The expansion valve is adiabatic and isenthalpic.")
+
+
+def run(argv: Sequence[str] | None = None) -> int:
+    """Run the CLI and return a process exit code."""
+    parser = create_parser()
+    args = parser.parse_args(argv)
+    try:
+        inputs = inputs_from_args(args)
+        result = simulate_cycle(inputs)
+    except ValueError as exc:
+        parser.error(f"simulation failed: {exc}")
+
+    if args.output == "json":
+        print(json.dumps(result_as_dict(inputs, result), indent=2))
+    elif args.output == "summary":
+        print(format_performance_summary(result))
+    else:
+        print_full_report(inputs, result)
+    return 0
+
+
+def main() -> None:
+    raise SystemExit(run())
 
 
 if __name__ == "__main__":

@@ -119,17 +119,17 @@ def test_default_case_stays_within_a_sensible_regression_range() -> None:
 
 
 @pytest.mark.parametrize(
-    "inputs",
+    "overrides",
     [
-        CycleInputs(evaporating_temperature_c=45, condensing_temperature_c=40),
-        CycleInputs(compressor_isentropic_efficiency=0),
-        CycleInputs(compressor_isentropic_efficiency=1.01),
-        CycleInputs(mass_flow_kg_s=0),
-        CycleInputs(mass_flow_kg_s=-0.01),
-        CycleInputs(superheat_k=-1),
-        CycleInputs(subcooling_k=-1),
+        {"evaporating_temperature_c": 45, "condensing_temperature_c": 40},
+        {"compressor_isentropic_efficiency": 0},
+        {"compressor_isentropic_efficiency": 1.01},
+        {"mass_flow_kg_s": 0},
+        {"mass_flow_kg_s": -0.01},
+        {"superheat_k": -1},
+        {"subcooling_k": -1},
     ],
 )
-def test_invalid_inputs_are_rejected(inputs: CycleInputs) -> None:
+def test_invalid_inputs_are_rejected(overrides: dict[str, float]) -> None:
     with pytest.raises(ValueError):
-        simulate_cycle(inputs)
+        simulate_cycle(CycleInputs(**overrides))

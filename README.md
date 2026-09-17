@@ -45,21 +45,8 @@ python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
 ```
 
-The basic installation includes only the simulator and CoolProp. JupyterLab and
-Matplotlib are optional and are needed only to work with the notebooks:
-
-```bash
-python -m pip install -e ".[notebooks]"
-```
-
-To install both development and notebook tools, use:
-
-```bash
-python -m pip install -e ".[dev,notebooks]"
-```
-
 Alternatively, `python -m pip install -r requirements.txt` performs the minimal
-installation, including the `hvac-cycle` command, without notebook tooling.
+installation, including the `hvac-cycle` command.
 
 ## Run the example
 
@@ -67,11 +54,27 @@ installation, including the `hvac-cycle` command, without notebook tooling.
 hvac-cycle
 ```
 
+Display all available inputs and their defaults:
+
+```bash
+hvac-cycle --help
+```
+
+Simulate a custom operating point:
+
+```bash
+hvac-cycle --fluid R134a --evap-temp 0 --cond-temp 45 \
+  --superheat 7 --subcooling 3 --efficiency 0.70 --mass-flow 0.04
+```
+
+Use `--output summary` for a compact result or `--output json` for a
+machine-readable result suitable for scripts and future user interfaces.
+
 The equivalent module invocation is useful if the shell has not refreshed its
 command lookup after installation:
 
 ```bash
-python -m hvac_cycle.cli
+python -m hvac_cycle
 ```
 
 ## Run the tests
