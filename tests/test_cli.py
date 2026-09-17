@@ -261,3 +261,47 @@ def test_learning_session_accepts_r1234ze_alias() -> None:
     assert exit_code == 0
     assert "Refrigerant:                 R1234ze(E)" in output
     assert "Lesson complete" in output
+
+
+def test_simulate_uses_subcritical_defaults_for_co2(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert run(["simulate", "--fluid", "CO2", "--output", "json"]) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["inputs"]["fluid"] == "R744"
+    assert payload["inputs"]["evaporating_temperature_c"] == -10.0
+    assert payload["inputs"]["condensing_temperature_c"] == 25.0
+    assert payload["inputs"]["superheat_k"] == 5.0
+    assert payload["inputs"]["subcooling_k"] == 3.0
+    assert payload["performance"]["cooling_cop"] > 1
+
+
+def test_r515b_cli_error_is_actionable(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit) as exit_info:
+        run(["simulate", "--fluid", "R515B"])
+
+    assert exit_info.value.code == 2
+    error = capsys.readouterr().err
+    assert "CoolProp HEOS" in error
+    assert "REFPROP" in error
+
+
+def test_learning_session_uses_subcritical_co2_defaults() -> None:
+    answers = iter(["CO2", "", "", "", "", "", "", "", "", "", "", "", "4"])
+    messages: list[str] = []
+
+    exit_code = run(
+        ["learn"],
+        input_fn=lambda _: next(answers),
+        output_fn=messages.append,
+    )
+
+    output = "\n".join(messages)
+    assert exit_code == 0
+    assert "Refrigerant:                 R744" in output
+    assert "Evaporating temperature:     -10.0 degC" in output
+    assert "Condensing temperature:      25.0 degC" in output
+    assert "Subcooling:                   3.0 K" in output

@@ -118,6 +118,17 @@ def test_default_case_stays_within_a_sensible_regression_range() -> None:
     )
 
 
+def test_transcritical_operating_point_is_rejected_explicitly() -> None:
+    with pytest.raises(ValueError, match="subcritical cycles only"):
+        simulate_cycle(
+            CycleInputs(
+                fluid="R744",
+                evaporating_temperature_c=-10,
+                condensing_temperature_c=35,
+            )
+        )
+
+
 @pytest.mark.parametrize(
     "overrides",
     [

@@ -59,6 +59,14 @@ def simulate_cycle(inputs: CycleInputs) -> CycleResult:
     if inputs.superheat_k < 0 or inputs.subcooling_k < 0:
         raise ValueError("Superheat and subcooling cannot be negative")
 
+    critical_temperature_c = PropsSI("Tcrit", inputs.fluid) - 273.15
+    if inputs.condensing_temperature_c >= critical_temperature_c:
+        raise ValueError(
+            f"Condensing temperature must be below the {inputs.fluid} critical "
+            f"temperature ({critical_temperature_c:.2f} degC). The current model "
+            "supports subcritical cycles only."
+        )
+
     evaporating_k = inputs.evaporating_temperature_c + 273.15
     condensing_k = inputs.condensing_temperature_c + 273.15
     p_low = PropsSI("P", "T", evaporating_k, "Q", 1, inputs.fluid)

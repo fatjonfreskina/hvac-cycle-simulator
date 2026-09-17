@@ -51,6 +51,8 @@ using only the README.
 - [ ] Generate P-h and T-s cycle coordinates
 - [ ] Add warnings for unsafe or non-physical operating points
 - [x] Support a small, documented refrigerant set with friendly aliases
+- [ ] Add optional REFPROP integration for validated R515B properties
+- [ ] Add a transcritical CO2 cycle with gas-cooler controls
 - [ ] Add parameter sweeps for comparative experiments
 - [x] Document model assumptions in the full educational report
 - [ ] Attach assumptions and warnings to machine-readable results

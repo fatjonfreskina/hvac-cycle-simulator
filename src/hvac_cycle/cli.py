@@ -7,7 +7,7 @@ from importlib.metadata import PackageNotFoundError, version
 from typing import Any, Callable
 
 from .cycle import CycleInputs, CycleResult, simulate_cycle
-from .refrigerants import SUPPORTED_REFRIGERANTS, normalize_refrigerant
+from .refrigerants import SUPPORTED_REFRIGERANTS, get_refrigerant, normalize_refrigerant
 from .state import Phase, ThermodynamicState
 
 
@@ -35,35 +35,36 @@ def add_simulation_arguments(parser: argparse.ArgumentParser) -> None:
         help=(
             "supported refrigerant name or alias: "
             + ", ".join(refrigerant.name for refrigerant in SUPPORTED_REFRIGERANTS)
+            + " (default: R134a)"
         ),
     )
     parser.add_argument(
-        "--evap-temp", type=float, default=5.0, metavar="DEG_C",
-        help="evaporating saturation temperature",
+        "--evap-temp", type=float, default=None, metavar="DEG_C",
+        help="evaporating saturation temperature (default: fluid-specific)",
     )
     parser.add_argument(
-        "--cond-temp", type=float, default=40.0, metavar="DEG_C",
-        help="condensing saturation temperature",
+        "--cond-temp", type=float, default=None, metavar="DEG_C",
+        help="condensing saturation temperature (default: fluid-specific)",
     )
     parser.add_argument(
-        "--superheat", type=float, default=5.0, metavar="K",
-        help="compressor-inlet superheat",
+        "--superheat", type=float, default=None, metavar="K",
+        help="compressor-inlet superheat (default: fluid-specific)",
     )
     parser.add_argument(
-        "--subcooling", type=float, default=5.0, metavar="K",
-        help="condenser-outlet subcooling",
+        "--subcooling", type=float, default=None, metavar="K",
+        help="condenser-outlet subcooling (default: fluid-specific)",
     )
     parser.add_argument(
         "--efficiency", type=float, default=0.75, metavar="FRACTION",
-        help="compressor isentropic efficiency in the range (0, 1]",
+        help="compressor isentropic efficiency in the range (0, 1] (default: 0.75)",
     )
     parser.add_argument(
         "--mass-flow", type=float, default=0.05, metavar="KG_S",
-        help="refrigerant mass flow",
+        help="refrigerant mass flow (default: 0.05 kg/s)",
     )
     parser.add_argument(
         "--output", choices=("full", "summary", "json"), default="full",
-        help="output detail and format",
+        help="output detail and format (default: full)",
     )
 
 
@@ -87,7 +88,6 @@ def create_parser() -> argparse.ArgumentParser:
             "Simulate an idealized steady-state vapor-compression HVAC cycle. "
             "Evaporating and condensing temperatures are saturation temperatures."
         ),
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     add_simulation_arguments(simulate_parser)
 
@@ -104,12 +104,29 @@ def create_parser() -> argparse.ArgumentParser:
 
 def inputs_from_args(args: argparse.Namespace) -> CycleInputs:
     """Translate parsed CLI arguments into domain inputs."""
+    refrigerant = get_refrigerant(args.fluid)
     return CycleInputs(
-        fluid=normalize_refrigerant(args.fluid),
-        evaporating_temperature_c=args.evap_temp,
-        condensing_temperature_c=args.cond_temp,
-        superheat_k=args.superheat,
-        subcooling_k=args.subcooling,
+        fluid=refrigerant.name,
+        evaporating_temperature_c=(
+            refrigerant.default_evaporating_temperature_c
+            if args.evap_temp is None
+            else args.evap_temp
+        ),
+        condensing_temperature_c=(
+            refrigerant.default_condensing_temperature_c
+            if args.cond_temp is None
+            else args.cond_temp
+        ),
+        superheat_k=(
+            refrigerant.default_superheat_k
+            if args.superheat is None
+            else args.superheat
+        ),
+        subcooling_k=(
+            refrigerant.default_subcooling_k
+            if args.subcooling is None
+            else args.subcooling
+        ),
         compressor_isentropic_efficiency=args.efficiency,
         mass_flow_kg_s=args.mass_flow,
     )
@@ -290,6 +307,10 @@ def prompt_refrigerant(
     output_fn("Supported refrigerants:")
     for number, refrigerant in enumerate(SUPPORTED_REFRIGERANTS, start=1):
         output_fn(f"  {number}. {refrigerant.name} - {refrigerant.description}")
+    output_fn(
+        "  R515B is unavailable in this build because CoolProp HEOS lacks the "
+        "required mixture interaction data."
+    )
 
     while True:
         answer = input_fn(f"Refrigerant [{default}]: ").strip()
@@ -318,6 +339,24 @@ def collect_learning_inputs(
         "The refrigerant determines the saturation pressures and thermodynamic properties."
     )
     fluid = prompt_refrigerant(defaults.fluid, input_fn, output_fn)
+    refrigerant = get_refrigerant(fluid)
+    refrigerant_changed = fluid != defaults.fluid
+    evaporating_default = (
+        refrigerant.default_evaporating_temperature_c
+        if refrigerant_changed
+        else defaults.evaporating_temperature_c
+    )
+    condensing_default = (
+        refrigerant.default_condensing_temperature_c
+        if refrigerant_changed
+        else defaults.condensing_temperature_c
+    )
+    superheat_default = (
+        refrigerant.default_superheat_k if refrigerant_changed else defaults.superheat_k
+    )
+    subcooling_default = (
+        refrigerant.default_subcooling_k if refrigerant_changed else defaults.subcooling_k
+    )
 
     output_fn(
         "\nEvaporating temperature is the low-side saturation temperature, not the "
@@ -325,7 +364,7 @@ def collect_learning_inputs(
     )
     evaporating_temperature = prompt_value(
         "Evaporating saturation temperature [degC]",
-        defaults.evaporating_temperature_c,
+        evaporating_default,
         input_fn,
         output_fn,
     )
@@ -336,7 +375,7 @@ def collect_learning_inputs(
     )
     condensing_temperature = prompt_value(
         "Condensing saturation temperature [degC]",
-        defaults.condensing_temperature_c,
+        condensing_default,
         input_fn,
         output_fn,
         validator=lambda value: value > evaporating_temperature,
@@ -348,7 +387,7 @@ def collect_learning_inputs(
     output_fn("\nSuperheat keeps liquid refrigerant away from the compressor inlet.")
     superheat = prompt_value(
         "Superheat [K]",
-        defaults.superheat_k,
+        superheat_default,
         input_fn,
         output_fn,
         validator=lambda value: value >= 0,
@@ -358,7 +397,7 @@ def collect_learning_inputs(
     output_fn("\nSubcooling ensures liquid refrigerant reaches the expansion valve.")
     subcooling = prompt_value(
         "Subcooling [K]",
-        defaults.subcooling_k,
+        subcooling_default,
         input_fn,
         output_fn,
         validator=lambda value: value >= 0,
